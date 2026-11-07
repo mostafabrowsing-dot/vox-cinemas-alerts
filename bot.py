@@ -164,7 +164,11 @@ def collect(cinema):
     today = datetime.now(ZoneInfo('Africa/Cairo')).strftime('%Y%m%d')
     default = selected_booking_date(page)
     if default < today:
-        raise ValueError('Default date is older than Cairo date')
+        # VOX may keep yesterday selected shortly after Cairo midnight.
+        page = get_page(cinema_url(cinema, d=today))
+        default = selected_booking_date(page)
+        if default != today:
+            raise ValueError('Returned date does not match requested date')
     pending, done, result = {default}, set(), {}
     def read(date):
         content = page if date == default else get_page(cinema_url(cinema, d=date))

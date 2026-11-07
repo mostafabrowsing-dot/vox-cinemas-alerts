@@ -77,9 +77,15 @@ class Tests(unittest.TestCase):
         with patch.object(b,'get_page',return_value=default):
             with self.assertRaisesRegex(ValueError,'does not match'):b.collect(A)
 
-    def test_stale_default_rejected(self):
+    def test_stale_default_retries_with_cairo_date(self):
+        today = b.datetime.now(b.ZoneInfo('Africa/Cairo')).strftime('%Y%m%d')
+        with patch.object(b, 'get_page', side_effect=[page('20000101'), page(today)]) as fetch:
+            self.assertEqual(b.collect(A)['film']['dates'], [today])
+            self.assertEqual(fetch.call_args.args, (b.cinema_url(A, d=today),))
+
+    def test_stale_default_rejected_if_retry_is_still_stale(self):
         with patch.object(b,'get_page',return_value=page('20000101')):
-            with self.assertRaisesRegex(ValueError,'older'):b.collect(A)
+            with self.assertRaisesRegex(ValueError,'does not match'):b.collect(A)
 
     def test_test_card_does_not_change_movie(self):
         m=movie();before=copy.deepcopy(m)
