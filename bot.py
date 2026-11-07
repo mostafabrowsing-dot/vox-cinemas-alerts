@@ -307,7 +307,7 @@ def main():
                 key = str(chat['id'])
                 if command == '/start':
                     state['subscribers'].setdefault(key, [])
-                    state['replies'][key] = '🎬 Welcome to VOX Cinemas Alerts!\nSubscribed to all VOX Egypt cinemas.\n\nNew movie bookings & pre-bookings\nNew booking dates\nPosters, formats & booking links\n\n/status — Monitoring status\n/test — Preview a notification\n/stop — Pause alerts\n\nChecks are requested every minute; notifications may be delayed.'
+                    state['replies'][key] = "🎬 Welcome to VOX Cinemas Alerts Bot !\n\nYou’re now subscribed to booking alerts for VOX Cinemas Egypt.\n\n🍿 New movie bookings & pre-bookings\n📅 Newly available booking dates\n🎟 Movie posters, available formats & booking links\n\n/status — View monitoring status\n/stop — Pause notifications\n\nChecks are requested every minute; notifications may be delayed."
                 elif command == '/stop':
                     state['subscribers'].pop(key, None)
                     if key in state['tests']:
