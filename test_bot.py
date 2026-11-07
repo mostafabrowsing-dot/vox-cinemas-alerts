@@ -72,6 +72,20 @@ class Tests(unittest.TestCase):
         with patch.object(b,'get_page',side_effect=lambda url: page('20261223') if 'd=20261223' in url else default):
             self.assertEqual(b.collect(A)['film']['dates'],['20261216','20261223'])
 
+    def test_confirmed_empty_day_keeps_other_dates(self):
+        link = '<a href="/showtimes?c=city-centre-almaza&amp;d=20261223">Later</a>'
+        empty = (
+            '<input name="d" value="20261216">'
+            '<input type="hidden" name="c" value="city-centre-almaza">'
+            '<p class="message none">No showtimes could be found for your current '
+            'cinema(s), movie(s) and date. Please amend your selection and try again.</p>'
+            + link
+        )
+        with patch.object(b, 'get_page', side_effect=[empty, page('20261223')]):
+            self.assertEqual(b.collect(A)['film']['dates'], ['20261223'])
+        with self.assertRaises(ValueError):
+            b.parse_page(empty, B)
+
     def test_wrong_explicit_date_rejected(self):
         default=page('20261216','<a href="/showtimes?c=city-centre-almaza&amp;d=20261223">Later</a>')
         with patch.object(b,'get_page',return_value=default):

@@ -49,7 +49,22 @@ jobs:
                   echo "::error::Could not save encrypted state after 5 attempts."
                   exit 1
                 fi
-                echo "::warning::State upload failed; retrying the same commit."
+                if timeout 20s git fetch --depth=1 origin main; then
+                  remote=$(git rev-parse FETCH_HEAD)
+                  base=$(git rev-parse HEAD^)
+                  if git diff --quiet HEAD "$remote" -- state.enc; then
+                    echo "Encrypted state already saved."
+                    exit 0
+                  fi
+                  if ! git diff --quiet "$base" "$remote" -- state.enc; then
+                    echo "::error::Remote encrypted state changed; refusing to overwrite it."
+                    exit 1
+                  fi
+                  if [ "$remote" != "$base" ]; then
+                    git rebase --onto "$remote" "$base"
+                  fi
+                fi
+                echo "::warning::State upload failed; retrying without running the monitor again."
                 sleep $((attempt * 3))
               done
             fi

@@ -155,6 +155,18 @@ def parse_page(page, cinema):
         if listed:
             movies[a['data-slug']] = {'title': clean(title[1]), 'formats': sorted(formats)}
     if not movies:
+        # VOX can list a date in the calendar even when that cinema has no shows.
+        selected = []
+        for tag in re.findall(r'<input\b[^>]*>', page, re.I):
+            values = attrs(tag)
+            if values.get('name') == 'c' and values.get('type') == 'hidden':
+                selected.append(values.get('value'))
+        empty = re.search(
+            r'<p class="message none">\s*No showtimes could be found for your current cinema\(s\), movie\(s\) and date\.',
+            page,
+        )
+        if empty and selected == [cinema['id']]:
+            return {}
         raise ValueError('No matching cinema movie blocks; previous state retained')
     return movies
 
