@@ -312,7 +312,7 @@ def main():
                     state['subscribers'].pop(key, None)
                     if key in state['tests']:
                         state['tests'].remove(key)
-                    state['replies'][key] = '🔕 Notifications paused. Send /start to subscribe again.'
+                    state['replies'][key] = "🔕 Notifications paused\n\nYou’re no longer subscribed to booking alerts for VOX Cinemas Egypt.\n\nSend /start whenever you’re ready to receive alerts again."
                 elif command == '/status':
                     state['replies'][key] = None
                 elif command == '/test' and key not in state['tests']:
