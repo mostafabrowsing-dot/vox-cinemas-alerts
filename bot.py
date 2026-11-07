@@ -5,6 +5,9 @@ import json
 import os
 import re
 import sys
+import time
+import threading
+import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -17,9 +20,31 @@ BASE = 'https://egy.voxcinemas.com'
 STATE = Path('state.enc')
 EXPECTED_BOT = 'VoxCinemasAlertsBot'
 
+_request_lock = threading.Lock()
+_last_request = 0.0
+
+
 def get_page(url):
-    with urllib.request.urlopen(url, timeout=60) as r:
-        return r.read().decode('utf-8')
+    global _last_request
+    for attempt in range(3):
+        with _request_lock:
+            time.sleep(max(0.0, 1.0 - (time.monotonic() - _last_request)))
+            _last_request = time.monotonic()
+        request = urllib.request.Request(url, headers={
+            'User-Agent': 'VOXCinemasAlertsBot/1.0 (+https://github.com/mostafabrowsing-dot/vox-cinemas-alerts)',
+            'Accept': 'text/html',
+        })
+        try:
+            with urllib.request.urlopen(request, timeout=45) as response:
+                return response.read().decode('utf-8')
+        except urllib.error.HTTPError as error:
+            if error.code not in (403, 429, 500, 502, 503, 504) or attempt == 2:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == 2:
+                raise
+        time.sleep(3 * (attempt + 1))
+
 
 def clean(value):
     return html.unescape(re.sub('<[^>]+>', '', value)).strip()
