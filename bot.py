@@ -282,6 +282,36 @@ def new_state():
     return {'version': 1, 'offset': 0, 'subscribers': {}, 'cinemas': {}, 'replies': {}, 'tests': []}
 
 
+def deliver_tests(token, state, cinemas, current_by_branch):
+    """One TEST per cinema, remembering successful deliveries across retries."""
+    progress = state.setdefault('test_progress', {})
+    for target in list(state['tests']):
+        request = progress.get(target)
+        if request is None:
+            if state.get('discovery_error') or not cinemas:
+                continue
+            request = {'remaining': list(cinemas)}
+            progress[target] = request
+        for key in list(request['remaining']):
+            if key not in cinemas or key not in current_by_branch:
+                continue
+            example = next(((slug, movie) for slug, movie in current_by_branch[key].items()
+                            if movie['dates']), None)
+            if example is None:
+                continue
+            slug, movie = example
+            try:
+                card = make_card(cinemas[key], slug, movie, movie['dates'], test=True)
+                deliver(token, target, card)
+                request['remaining'].remove(key)
+                print('Requested TEST delivered:', cinemas[key]['name'])
+            except Exception:
+                print('TEST pending:', cinemas[key]['name'])
+        if not request['remaining']:
+            state['tests'].remove(target)
+            progress.pop(target, None)
+
+
 def main():
     check = '--check' in sys.argv
     token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
@@ -312,11 +342,13 @@ def main():
                     state['subscribers'].pop(key, None)
                     if key in state['tests']:
                         state['tests'].remove(key)
+                    state.setdefault('test_progress', {}).pop(key, None)
                     state['replies'][key] = "🔕 Notifications paused\n\nYou’re no longer subscribed to booking alerts for VOX Cinemas Egypt.\n\nSend /start whenever you’re ready to receive alerts again."
                 elif command == '/status':
                     state['replies'][key] = None
                 elif command == '/test' and key not in state['tests']:
                     state['tests'].append(key)
+                    state.setdefault('test_progress', {}).pop(key, None)
             state['offset'] = max(state['offset'], update['update_id'] + 1)
     current_by_branch = {}
     try:
@@ -343,17 +375,7 @@ def main():
             raise RuntimeError('Live check incomplete')
         print('All discovered cinema checks passed. No messages sent.')
         return
-    # Only the requesting chat receives TEST; it never changes seen or broadcasts.
-    example = next(((key, slug, movie) for key, movies in current_by_branch.items() for slug, movie in movies.items() if movie['dates']), None)
-    if example and state['tests']:
-        key, slug, movie = example
-        card = make_card(cinemas[key], slug, movie, movie['dates'], test=True)
-        for target in list(state['tests']):
-            try:
-                deliver(token, target, card)
-                state['tests'].remove(target)
-            except RuntimeError:
-                print('TEST delivery pending.')
+    deliver_tests(token, state, cinemas, current_by_branch)
     for target, reply in list(state['replies'].items()):
         try:
             telegram(token, 'sendMessage', {'chat_id': target, 'text': reply if reply is not None else status_text(state)})
